@@ -1,22 +1,29 @@
 # ============================================================
 # TTS API 配置文件
 # ============================================================
-# 切换模型: custom_voice | base | kokoro
+#
+# 切换模型：修改 model.active 即可，无需重启以外的任何操作
 #   custom_voice — Qwen3-TTS CustomVoice（预设音色，甜美女声等）
-#   base         — Qwen3-TTS Base（Voice Clone，自定义音色）
+#   base         — Qwen3-TTS Base（Voice Clone，需先注册自定义音色）
 #   kokoro       — Kokoro-82M（轻量级，中英双语）
+#
 # ============================================================
 
 model:
+  # 当前激活模型：custom_voice | base | kokoro
   active: custom_voice
 
-  # CustomVoice / Base 模型配置
-  model_path: "/models/Qwen3-TTS-12Hz-1.7B-CustomVoice"   # 容器内路径（挂载到 /models）
+  # Qwen3-TTS 模型路径（custom_voice 和 base 共用或分别指定）
+  # 容器内路径，通过 docker-compose volumes 挂载到 /models
+  model_path: "/models/Qwen3-TTS-12Hz-1.7B-CustomVoice"
+
+  # 设备与精度
   device_map: "cpu"        # cpu / cuda:0 等
-  torch_dtype: "float32"   # float16 / float32 / bloat16
+  torch_dtype: "float32"   # float16 / float32 / bfloat16
 
   # Kokoro 专用（当 active=kokoro 时使用）
-  kokoro: "a"    # a=英语, z=中文
+  # lang_code: a=英语, z=中文
+  lang_code: "a"
 
 server:
   host: "0.0.0.0"
@@ -28,6 +35,6 @@ output:
 voice_clones:
   dir: "/clones"           # 容器内路径（挂载到 /clones）
 
-# API 客户端用
+# tts_client.py 使用的默认地址
 api:
   base_url: "http://localhost:8420"
