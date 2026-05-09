@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local data (在容器中通过 volume 挂载)
+output_audio/
+voice_clones/
+models/
+config.local.yaml
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yaml
+.dockerignore
+
+# Docs
+*.md
+LICENSE

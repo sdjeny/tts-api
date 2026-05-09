@@ -1,0 +1,33 @@
+# ============================================================
+# TTS API 配置文件
+# ============================================================
+# 切换模型: custom_voice | base | kokoro
+#   custom_voice — Qwen3-TTS CustomVoice（预设音色，甜美女声等）
+#   base         — Qwen3-TTS Base（Voice Clone，自定义音色）
+#   kokoro       — Kokoro-82M（轻量级，中英双语）
+# ============================================================
+
+model:
+  active: custom_voice
+
+  # CustomVoice / Base 模型配置
+  model_path: "/models/Qwen3-TTS-12Hz-1.7B-CustomVoice"   # 容器内路径（挂载到 /models）
+  device_map: "cpu"        # cpu / cuda:0 等
+  torch_dtype: "float32"   # float16 / float32 / bloat16
+
+  # Kokoro 专用（当 active=kokoro 时使用）
+  kokoro: "a"    # a=英语, z=中文
+
+server:
+  host: "0.0.0.0"
+  port: 8420
+
+output:
+  base_dir: "/audio"       # 容器内路径（挂载到 /audio）
+
+voice_clones:
+  dir: "/clones"           # 容器内路径（挂载到 /clones）
+
+# API 客户端用
+api:
+  base_url: "http://localhost:8420"

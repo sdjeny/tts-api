@@ -1,0 +1,59 @@
+# ============================================================
+# TTS API — Docker Compose
+# 用法:
+#   cp config.yaml config.local.yaml   # 改好配置
+#   docker compose up -d
+# ============================================================
+version: "3.8"
+
+services:
+  tts-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tts-api:latest
+    container_name: tts-api
+    restart: unless-stopped
+
+    ports:
+      - "8420:8420"
+
+    volumes:
+      # 模型文件（必改路径）
+      - ./models:/models:ro
+
+      # 生成的音频（持久化）
+      - ./output_audio:/audio
+
+      # Voice Clone 存储（Base 模型用）
+      - ./voice_clones:/clones
+
+      # 配置文件（覆盖容器内默认配置）
+      - ./config.yaml:/app/config.yaml:ro
+
+    environment:
+      # 可通过环境变量覆盖 config.yaml 中的值
+      - TTS_MODEL_PATH=/models
+      - TTS_OUTPUT_DIR=/audio
+      - TTS_CLONE_DIR=/clones
+
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 2G
+
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8420/tts/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
