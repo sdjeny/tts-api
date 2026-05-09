@@ -65,8 +65,8 @@ def get_model(config=None):
             raise RuntimeError("config 不能为空")
 
         model_path = config["model"]["model_path"]
-        device_map = config.get("device_map", "cpu")
-        torch_dtype_str = config.get("torch_dtype", "float32")
+        device_map = config.get("model", {}).get("device_map", "cpu")
+        torch_dtype_str = config.get("model", {}).get("torch_dtype", "float32")
 
         dtype_map = {
             "float16": torch.float16,
