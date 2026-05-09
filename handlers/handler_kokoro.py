@@ -55,9 +55,23 @@ _SPEAKERS = [
 ]
 
 # ── 语言映射 ─────────────────────────────────────────────
+# 对外接口使用 ISO 639-1 标准语言代码
+# Kokoro 内部使用单字母 lang_code：a=美英, b=英英, z=中文, j=日文, e=西, f=法, h=印, i=意, p=葡
 _LANG_MAP = {
-    "Chinese": "z",
+    # ISO 639-1 → Kokoro lang_code
+    "en": "a",       # English (American)
+    "en-us": "a",    # English (American)
+    "en-gb": "b",    # English (British)
+    "zh": "z",       # Mandarin Chinese
+    "ja": "j",       # Japanese
+    "es": "e",       # Spanish
+    "fr": "f",       # French
+    "hi": "h",       # Hindi
+    "it": "i",       # Italian
+    "pt": "p",       # Portuguese (Brazil)
+    # 兼容旧格式
     "English": "a",
+    "Chinese": "z",
 }
 
 # ── 固定采样率 ───────────────────────────────────────────

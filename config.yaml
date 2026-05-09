@@ -22,8 +22,8 @@ model:
   torch_dtype: "float32"   # float16 / float32 / bfloat16
 
   # Kokoro 专用（当 active=kokoro 时使用）
-  # lang_code: a=英语, z=中文
-  lang_code: "a"
+  # 语言代码：en/zh/ja/es/fr/hi/it/pt/en-gb
+  lang_code: "en"
 
 server:
   host: "0.0.0.0"
