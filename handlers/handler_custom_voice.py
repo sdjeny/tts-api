@@ -64,7 +64,7 @@ def get_model(config=None):
         if config is None:
             raise RuntimeError("config 不能为空")
 
-        model_path = config["model_path"]
+        model_path = config["model"]["model_path"]
         device_map = config.get("device_map", "cpu")
         torch_dtype_str = config.get("torch_dtype", "float32")
 
