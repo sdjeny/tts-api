@@ -31,44 +31,93 @@ _output_base = None
 _models = {}          # lang_code -> KPipeline 实例
 _model_lock = threading.Lock()
 
-# ── 默认音色列表 ─────────────────────────────────────────
+# ── 默认音色列表（Kokoro v1.0 全部 54 个）──────────────────
+# 按语言分组，lang_code 表示所属语言管道
+# 注意：音色可以在跨语言管道中使用（会有 warning 但不报错）
 _SPEAKERS = [
-    {"name": "af_heart",   "description": "Female, warm and heartfelt"},
-    {"name": "af_alloy",   "description": "Female, balanced and versatile"},
-    {"name": "af_aoede",   "description": "Female, soft and melodic"},
-    {"name": "af_bella",   "description": "Female, bright and expressive"},
-    {"name": "af_jessica", "description": "Female, clear and natural"},
-    {"name": "af_kore",    "description": "Female, warm mid-tone"},
-    {"name": "af_nova",    "description": "Female, modern and crisp"},
-    {"name": "af_river",   "description": "Female, calm and flowing"},
-    {"name": "af_sarah",   "description": "Female, gentle and smooth"},
-    {"name": "af_sky",     "description": "Female, light and airy"},
-    {"name": "am_adam",    "description": "Male, deep and steady"},
-    {"name": "am_echo",    "description": "Male, resonant and rich"},
-    {"name": "am_eric",    "description": "Male, warm and friendly"},
-    {"name": "am_fenrir",  "description": "Male, strong and bold"},
-    {"name": "am_liam",    "description": "Male, clear and youthful"},
-    {"name": "am_michael", "description": "Male, smooth and professional"},
-    {"name": "am_onyx",    "description": "Male, dark and powerful"},
-    {"name": "am_puck",    "description": "Male, playful and energetic"},
-    {"name": "am_santa",   "description": "Male, jolly and festive"},
+    # ── 🇺🇸 American English (lang_code='a') ── 11F 9M ──
+    {"name": "af_heart",   "lang": "a", "gender": "F", "desc": "warm and heartfelt"},
+    {"name": "af_alloy",   "lang": "a", "gender": "F", "desc": "balanced and versatile"},
+    {"name": "af_aoede",   "lang": "a", "gender": "F", "desc": "soft and melodic"},
+    {"name": "af_bella",   "lang": "a", "gender": "F", "desc": "bright and expressive"},
+    {"name": "af_jessica", "lang": "a", "gender": "F", "desc": "clear and natural"},
+    {"name": "af_kore",    "lang": "a", "gender": "F", "desc": "warm mid-tone"},
+    {"name": "af_nicole",  "lang": "a", "gender": "F", "desc": "headphone-friendly"},
+    {"name": "af_nova",    "lang": "a", "gender": "F", "desc": "modern and crisp"},
+    {"name": "af_river",   "lang": "a", "gender": "F", "desc": "calm and flowing"},
+    {"name": "af_sarah",   "lang": "a", "gender": "F", "desc": "gentle and smooth"},
+    {"name": "af_sky",     "lang": "a", "gender": "F", "desc": "light and airy"},
+    {"name": "am_adam",    "lang": "a", "gender": "M", "desc": "deep and steady"},
+    {"name": "am_echo",    "lang": "a", "gender": "M", "desc": "resonant and rich"},
+    {"name": "am_eric",    "lang": "a", "gender": "M", "desc": "warm and friendly"},
+    {"name": "am_fenrir",  "lang": "a", "gender": "M", "desc": "strong and bold"},
+    {"name": "am_liam",    "lang": "a", "gender": "M", "desc": "clear and youthful"},
+    {"name": "am_michael", "lang": "a", "gender": "M", "desc": "smooth and professional"},
+    {"name": "am_onyx",    "lang": "a", "gender": "M", "desc": "dark and powerful"},
+    {"name": "am_puck",    "lang": "a", "gender": "M", "desc": "playful and energetic"},
+    {"name": "am_santa",   "lang": "a", "gender": "M", "desc": "jolly and festive"},
+    # ── 🇬🇧 British English (lang_code='b') ── 4F 4M ──
+    {"name": "bf_alice",     "lang": "b", "gender": "F", "desc": "British, gentle"},
+    {"name": "bf_emma",      "lang": "b", "gender": "F", "desc": "British, warm"},
+    {"name": "bf_isabella",  "lang": "b", "gender": "F", "desc": "British, clear"},
+    {"name": "bf_lily",      "lang": "b", "gender": "F", "desc": "British, soft"},
+    {"name": "bm_daniel",    "lang": "b", "gender": "M", "desc": "British, steady"},
+    {"name": "bm_fable",     "lang": "b", "gender": "M", "desc": "British, warm"},
+    {"name": "bm_george",    "lang": "b", "gender": "M", "desc": "British, clear"},
+    {"name": "bm_lewis",     "lang": "b", "gender": "M", "desc": "British, rich"},
+    # ── 🇯🇵 Japanese (lang_code='j') ── 4F 1M ──
+    {"name": "jf_alpha",      "lang": "j", "gender": "F", "desc": "Japanese, clear"},
+    {"name": "jf_gongitsune", "lang": "j", "gender": "F", "desc": "Japanese, melodic"},
+    {"name": "jf_nezumi",     "lang": "j", "gender": "F", "desc": "Japanese, soft"},
+    {"name": "jf_tebukuro",   "lang": "j", "gender": "F", "desc": "Japanese, warm"},
+    {"name": "jm_kumo",       "lang": "j", "gender": "M", "desc": "Japanese, gentle"},
+    # ── 🇨🇳 Mandarin Chinese (lang_code='z') ── 4F 4M ──
+    {"name": "zf_xiaobei",  "lang": "z", "gender": "F", "desc": "Chinese, sweet"},
+    {"name": "zf_xiaoni",   "lang": "z", "gender": "F", "desc": "Chinese, lively"},
+    {"name": "zf_xiaoxiao", "lang": "z", "gender": "F", "desc": "Chinese, clear"},
+    {"name": "zf_xiaoyi",   "lang": "z", "gender": "F", "desc": "Chinese, warm"},
+    {"name": "zm_yunjian",  "lang": "z", "gender": "M", "desc": "Chinese, calm"},
+    {"name": "zm_yunxi",    "lang": "z", "gender": "M", "desc": "Chinese, bright"},
+    {"name": "zm_yunxia",   "lang": "z", "gender": "M", "desc": "Chinese, gentle"},
+    {"name": "zm_yunyang",  "lang": "z", "gender": "M", "desc": "Chinese, news-style"},
+    # ── 🇪🇸 Spanish (lang_code='e') ── 1F 2M ──
+    {"name": "ef_dora",  "lang": "e", "gender": "F", "desc": "Spanish, clear"},
+    {"name": "em_alex",  "lang": "e", "gender": "M", "desc": "Spanish, warm"},
+    {"name": "em_santa", "lang": "e", "gender": "M", "desc": "Spanish, festive"},
+    # ── 🇫🇷 French (lang_code='f') ── 1F ──
+    {"name": "ff_siwis", "lang": "f", "gender": "F", "desc": "French, clear"},
+    # ── 🇮🇳 Hindi (lang_code='h') ── 2F 2M ──
+    {"name": "hf_alpha", "lang": "h", "gender": "F", "desc": "Hindi, clear"},
+    {"name": "hf_beta",  "lang": "h", "gender": "F", "desc": "Hindi, warm"},
+    {"name": "hm_omega", "lang": "h", "gender": "M", "desc": "Hindi, deep"},
+    {"name": "hm_psi",   "lang": "h", "gender": "M", "desc": "Hindi, calm"},
+    # ── 🇮🇹 Italian (lang_code='i') ── 1F 1M ──
+    {"name": "if_sara",   "lang": "i", "gender": "F", "desc": "Italian, clear"},
+    {"name": "im_nicola", "lang": "i", "gender": "M", "desc": "Italian, warm"},
+    # ── 🇧🇷 Brazilian Portuguese (lang_code='p') ── 1F 2M ──
+    {"name": "pf_dora",  "lang": "p", "gender": "F", "desc": "Portuguese, clear"},
+    {"name": "pm_alex",  "lang": "p", "gender": "M", "desc": "Portuguese, warm"},
+    {"name": "pm_santa", "lang": "p", "gender": "M", "desc": "Portuguese, festive"},
 ]
 
 # ── 语言映射 ─────────────────────────────────────────────
 # 对外接口使用 ISO 639-1 标准语言代码
 # Kokoro 内部使用单字母 lang_code：a=美英, b=英英, z=中文, j=日文, e=西, f=法, h=印, i=意, p=葡
+# 参考：KPipeline.ALIASES = {'en-us':'a', 'en-gb':'b', 'es':'e', 'fr-fr':'f', 'hi':'h', 'it':'i', 'pt-br':'p', 'ja':'j', 'zh':'z'}
 _LANG_MAP = {
-    # ISO 639-1 → Kokoro lang_code
-    "en": "a",       # English (American)
-    "en-us": "a",    # English (American)
-    "en-gb": "b",    # English (British)
-    "zh": "z",       # Mandarin Chinese
-    "ja": "j",       # Japanese
-    "es": "e",       # Spanish
-    "fr": "f",       # French
-    "hi": "h",       # Hindi
-    "it": "i",       # Italian
-    "pt": "p",       # Portuguese (Brazil)
+    # ISO 639-1 / 常见格式 → Kokoro lang_code
+    "en":     "a",   # English (American)
+    "en-us":  "a",   # English (American)
+    "en-gb":  "b",   # English (British)
+    "zh":     "z",   # Mandarin Chinese
+    "ja":     "j",   # Japanese
+    "es":     "e",   # Spanish
+    "fr":     "f",   # French
+    "fr-fr":  "f",   # French (France)
+    "hi":     "h",   # Hindi
+    "it":     "i",   # Italian
+    "pt":     "p",   # Portuguese (Brazil)
+    "pt-br":  "p",   # Portuguese (Brazil)
     # 兼容旧格式
     "English": "a",
     "Chinese": "z",
@@ -83,53 +132,26 @@ def _parse_speaker(speaker_raw: str, lang_code: str):
     """
     解析 speaker 字段，返回 (voice_str, blend_desc)。
 
-    支持三种格式：
+    支持两种格式：
       单音色:    "af_heart"
-      等权混合:  "af_heart,am_adam"          → Kokoro 原生 torch.mean
-      加权混合:  "af_heart:0.7,am_adam:0.3"  → 自定义加权平均 embedding
+      等权混合:  "af_heart,am_adam"  → KPipeline.load_voice 原生 torch.mean
 
-    voice_str:  传给 KPipeline 的 voice 参数（加权时是 "name:weight,..." 格式）
-    blend_desc: 用于日志的可读描述
+    Kokoro 原生不支持加权比例（name:weight），如需自定义权重请在外部预处理。
     """
-    import re
+    if not speaker_raw:
+        return "af_heart", "af_heart"
 
-    # 检查是否包含权重（冒号分隔数字）
-    has_weights = bool(re.search(r':\d+(\.\d+)?', speaker_raw))
-
-    if not has_weights:
-        # 无权重：单音色或等权混合，直接传给 KPipeline
-        return speaker_raw, speaker_raw
-
-    # 加权混合：解析 "name:weight,name:weight,..."
-    parts = []
-    total_weight = 0.0
-    for token in speaker_raw.split(','):
-        token = token.strip()
-        if not token:
-            continue
-        if ':' in token:
-            name, weight_str = token.rsplit(':', 1)
-            try:
-                weight = float(weight_str)
-            except ValueError:
-                weight = 1.0
-        else:
-            name = token
-            weight = 1.0
-        parts.append((name.strip(), weight))
-        total_weight += weight
-
+    # 去掉空格，规范化
+    parts = [p.strip() for p in speaker_raw.split(',') if p.strip()]
     if not parts:
         return "af_heart", "af_heart"
 
-    # 归一化权重
-    if total_weight <= 0:
-        total_weight = len(parts)
-        parts = [(name, 1.0) for name, _ in parts]
-
-    voice_str = ','.join(f"{name}:{weight}" for name, weight in parts)
-    blend_desc = ' + '.join(f"{name}({weight/total_weight:.0%})" for name, weight in parts)
-    return voice_str, blend_desc
+    voice_str = ','.join(parts)
+    if len(parts) == 1:
+        return voice_str, voice_str
+    else:
+        blend_desc = ' + '.join(parts) + ' (等权)'
+        return voice_str, blend_desc
 
 
 # ══════════════════════════════════════════════════════════
@@ -222,58 +244,13 @@ def _worker_loop(config):
             pipeline = _get_pipeline(lang_code)
 
             # ── 音色混合处理 ─────────────────────────────────
-            # 检测是否为加权混合（voice_str 含权重格式 "name:weight,..."）
-            import re
-            is_weighted = bool(re.search(r':\d+(\.\d+)?', voice))
-
-            if is_weighted:
-                # 加权混合：手动加载各音色 embedding，加权平均后直接传 ref_s
-                # 解析 "name:weight,name:weight,..."
-                parts = []
-                total_w = 0.0
-                for token in voice.split(','):
-                    token = token.strip()
-                    if ':' in token:
-                        name, ws = token.rsplit(':', 1)
-                        w = float(ws)
-                    else:
-                        name, w = token, 1.0
-                    parts.append((name.strip(), w))
-                    total_w += w
-
-                if total_w <= 0:
-                    total_w = len(parts)
-                    parts = [(n, 1.0) for n, _ in parts]
-
-                # 加载各音色 embedding 并加权平均
-                import torch
-                embeddings = []
-                for name, w in parts:
-                    pack = pipeline.load_single_voice(name)  # torch.FloatTensor
-                    embeddings.append(pack * (w / total_w))
-                ref_s = torch.stack(embeddings).sum(dim=0)
-
-                # 直接用 KModel forward，绕过 KPipeline.load_voice
-                all_audio = []
-                model = pipeline.model
-                # 需要走 KPipeline 的 G2P + 分句 + infer
-                # 使用 generate_from_tokens 需要 tokens，这里改用底层方式
-                from kokoro import KPipeline as _KP
-                # 复用 pipeline 的 g2p 和分句逻辑
-                _, tokens = pipeline.g2p(text)
-                for gs, ps, tks in pipeline.en_tokenize(tokens):
-                    if not ps:
-                        continue
-                    if len(ps) > 510:
-                        ps = ps[:510]
-                    output = _KP.infer(model, ps, ref_s.to(model.device), speed=1)
-                    all_audio.append(output)
-            else:
-                # 单音色或等权混合：KPipeline 原生处理
-                all_audio = []
-                generator = pipeline(text, voice=voice, speed=1.0)
-                for i, (gs, ps, audio) in enumerate(generator):
-                    all_audio.append(audio)
+            # Kokoro 原生支持等权混合（逗号分隔），如 "af_heart,am_adam"
+            # 单音色直接传字符串，如 "af_heart"
+            # 无需特殊处理，KPipeline.load_voice 内部自动做 torch.mean
+            all_audio = []
+            generator = pipeline(text, voice=voice, speed=1.0)
+            for i, (gs, ps, audio) in enumerate(generator):
+                all_audio.append(audio)
 
             # 拼接多段音频
             if len(all_audio) == 1:
