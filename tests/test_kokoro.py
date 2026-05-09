@@ -128,16 +128,22 @@ print("=" * 60)
 # 注意：Kokoro 原生混合是等权平均，不支持自定义比例
 # 如果需要自定义比例，需要修改 handler 或多次生成后 waveform 叠加
 MIX_PROFILES = [
-    {"name": "mix_2f",    "desc": "双女声混合",  "voices": "af_heart,af_bella"},
-    {"name": "mix_2m",    "desc": "双男声混合",  "voices": "am_adam,am_michael"},
-    {"name": "mix_f_m",   "desc": "男女声混合",  "voices": "af_heart,am_adam"},
-    {"name": "mix_3",     "desc": "三音色混合",  "voices": "af_heart,am_adam,af_bella"},
-    {"name": "mix_4",     "desc": "四音色混合",  "voices": "af_bella,af_sky,am_eric,am_onyx"},
+    # ── 等权混合（Kokoro 原生） ─────────────────────────
+    {"name": "eq_2f",    "desc": "双女声等权",  "voices": "af_heart,af_bella"},
+    {"name": "eq_2m",    "desc": "双男声等权",  "voices": "am_adam,am_michael"},
+    {"name": "eq_f_m",   "desc": "男女声等权",  "voices": "af_heart,am_adam"},
+    {"name": "eq_3",     "desc": "三音色等权",  "voices": "af_heart,am_adam,af_bella"},
+    # ── 加权混合（自定义 embedding 加权平均） ──────────
+    {"name": "w_f70_m30",  "desc": "女70%+男30%",  "voices": "af_heart:0.7,am_adam:0.3"},
+    {"name": "w_f30_m70",  "desc": "女30%+男70%",  "voices": "af_bella:0.3,am_onyx:0.7"},
+    {"name": "w_f50_m50",  "desc": "女50%+男50%",  "voices": "af_heart:0.5,am_adam:0.5"},
+    {"name": "w_3voice",   "desc": "三音色加权",  "voices": "af_heart:0.5,am_adam:0.3,af_bella:0.2"},
+    {"name": "w_4voice",   "desc": "四音色加权",  "voices": "af_heart:0.4,am_adam:0.3,af_bella:0.2,am_onyx:0.1"},
+    {"name": "w_extreme",  "desc": "极端比例95:5", "voices": "af_heart:0.95,am_adam:0.05"},
 ]
 
 for profile in MIX_PROFILES:
     print(f"  [{profile['name']}] {profile['desc']} ({profile['voices']}) ...", end=" ", flush=True)
-    # 多音色直接传逗号分隔字符串
     data, err = submit_and_wait(EN_TEXT, profile["voices"], language="English")
     if err:
         print(f"❌ {err}")

@@ -64,6 +64,60 @@ _LANG_MAP = {
 _SAMPLE_RATE = 24000
 
 
+# ── 音色解析 ──────────────────────────────────────────────
+def _parse_speaker(speaker_raw: str, lang_code: str):
+    """
+    解析 speaker 字段，返回 (voice_str, blend_desc)。
+
+    支持三种格式：
+      单音色:    "af_heart"
+      等权混合:  "af_heart,am_adam"          → Kokoro 原生 torch.mean
+      加权混合:  "af_heart:0.7,am_adam:0.3"  → 自定义加权平均 embedding
+
+    voice_str:  传给 KPipeline 的 voice 参数（加权时是 "name:weight,..." 格式）
+    blend_desc: 用于日志的可读描述
+    """
+    import re
+
+    # 检查是否包含权重（冒号分隔数字）
+    has_weights = bool(re.search(r':\d+(\.\d+)?', speaker_raw))
+
+    if not has_weights:
+        # 无权重：单音色或等权混合，直接传给 KPipeline
+        return speaker_raw, speaker_raw
+
+    # 加权混合：解析 "name:weight,name:weight,..."
+    parts = []
+    total_weight = 0.0
+    for token in speaker_raw.split(','):
+        token = token.strip()
+        if not token:
+            continue
+        if ':' in token:
+            name, weight_str = token.rsplit(':', 1)
+            try:
+                weight = float(weight_str)
+            except ValueError:
+                weight = 1.0
+        else:
+            name = token
+            weight = 1.0
+        parts.append((name.strip(), weight))
+        total_weight += weight
+
+    if not parts:
+        return "af_heart", "af_heart"
+
+    # 归一化权重
+    if total_weight <= 0:
+        total_weight = len(parts)
+        parts = [(name, 1.0) for name, _ in parts]
+
+    voice_str = ','.join(f"{name}:{weight}" for name, weight in parts)
+    blend_desc = ' + '.join(f"{name}({weight/total_weight:.0%})" for name, weight in parts)
+    return voice_str, blend_desc
+
+
 # ══════════════════════════════════════════════════════════
 # 模型加载（懒加载，按语言）
 # ══════════════════════════════════════════════════════════
@@ -117,7 +171,7 @@ def _worker_loop(config):
         try:
             text = task["text"]
             language = task.get("language", "English")
-            voice = task.get("speaker", "af_heart") or "af_heart"
+            speaker_raw = task.get("speaker", "af_heart") or "af_heart"
 
             # 语言 -> lang_code
             lang_code = _LANG_MAP.get(language, "a")
@@ -138,19 +192,74 @@ def _worker_loop(config):
             if task.get("repetition_penalty") is not None:
                 log.info("[%s] Kokoro 不支持 repetition_penalty 参数，已忽略", task_id[:8])
 
+            # ── 解析 speaker 字段 ─────────────────────────────
+            # 支持三种格式：
+            #   单音色:    "af_heart"
+            #   等权混合:  "af_heart,am_adam"          → Kokoro 原生支持
+            #   加权混合:  "af_heart:0.7,am_adam:0.3"  → 自定义加权平均 embedding
+            voice, blend_desc = _parse_speaker(speaker_raw, lang_code)
+
             log.info(
                 "[%s] 开始生成 | text=%.30s | voice=%s | lang=%s",
-                task_id[:8], text, voice, lang_code,
+                task_id[:8], text, blend_desc, lang_code,
             )
 
             # 获取对应语言的 pipeline
             pipeline = _get_pipeline(lang_code)
 
-            # 生成音频（KPipeline 返回 generator）
-            all_audio = []
-            generator = pipeline(text, voice=voice, speed=1.0)
-            for i, (gs, ps, audio) in enumerate(generator):
-                all_audio.append(audio)
+            # ── 音色混合处理 ─────────────────────────────────
+            # 检测是否为加权混合（voice_str 含权重格式 "name:weight,..."）
+            import re
+            is_weighted = bool(re.search(r':\d+(\.\d+)?', voice))
+
+            if is_weighted:
+                # 加权混合：手动加载各音色 embedding，加权平均后直接传 ref_s
+                # 解析 "name:weight,name:weight,..."
+                parts = []
+                total_w = 0.0
+                for token in voice.split(','):
+                    token = token.strip()
+                    if ':' in token:
+                        name, ws = token.rsplit(':', 1)
+                        w = float(ws)
+                    else:
+                        name, w = token, 1.0
+                    parts.append((name.strip(), w))
+                    total_w += w
+
+                if total_w <= 0:
+                    total_w = len(parts)
+                    parts = [(n, 1.0) for n, _ in parts]
+
+                # 加载各音色 embedding 并加权平均
+                import torch
+                embeddings = []
+                for name, w in parts:
+                    pack = pipeline.load_single_voice(name)  # torch.FloatTensor
+                    embeddings.append(pack * (w / total_w))
+                ref_s = torch.stack(embeddings).sum(dim=0)
+
+                # 直接用 KModel forward，绕过 KPipeline.load_voice
+                all_audio = []
+                model = pipeline.model
+                # 需要走 KPipeline 的 G2P + 分句 + infer
+                # 使用 generate_from_tokens 需要 tokens，这里改用底层方式
+                from kokoro import KPipeline as _KP
+                # 复用 pipeline 的 g2p 和分句逻辑
+                _, tokens = pipeline.g2p(text)
+                for gs, ps, tks in pipeline.en_tokenize(tokens):
+                    if not ps:
+                        continue
+                    if len(ps) > 510:
+                        ps = ps[:510]
+                    output = _KP.infer(model, ps, ref_s.to(model.device), speed=1)
+                    all_audio.append(output)
+            else:
+                # 单音色或等权混合：KPipeline 原生处理
+                all_audio = []
+                generator = pipeline(text, voice=voice, speed=1.0)
+                for i, (gs, ps, audio) in enumerate(generator):
+                    all_audio.append(audio)
 
             # 拼接多段音频
             if len(all_audio) == 1:
