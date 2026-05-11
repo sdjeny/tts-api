@@ -160,7 +160,8 @@ class TtsClient:
                speaker: str = "", instruct: str = "",
                temperature: float = None, do_sample: bool = None,
                top_k: int = None, top_p: float = None,
-               repetition_penalty: float = None) -> SubmitResult:
+               repetition_penalty: float = None,
+               speed: float = None) -> SubmitResult:
         """
         提交 TTS 任务。
 
@@ -170,6 +171,7 @@ class TtsClient:
           top_k:              保留 top-k token 采样，越小越集中，建议 10~100
           top_p:              核采样阈值，越小越集中，建议 0.5~1.0
           repetition_penalty: 重复惩罚，>1.0 抑制重复，建议 1.0~1.5
+          speed:              语速，0.25~4.0，默认 1.0（仅 Kokoro 支持）
         """
         payload = {
             "text": text,
@@ -188,6 +190,8 @@ class TtsClient:
             payload["top_p"] = top_p
         if repetition_penalty is not None:
             payload["repetition_penalty"] = repetition_penalty
+        if speed is not None:
+            payload["speed"] = speed
 
         r, code = self._request("POST", "/tts/submit", payload)
         if code == 202:
