@@ -1,6 +1,23 @@
+# ── 核心服务 ──
 flask>=3.0
 pyyaml>=6.0
+
+# ── Qwen3-TTS 模型（custom_voice / base）──
+qwen_tts
+modelscope
 torch>=2.0
+
+# ── Kokoro-82M 模型 ──
+kokoro>=0.7
+
+# ── Kokoro 子依赖（misaki 英文/中文 phonemizer，不自动装需要手动列）──
+# misaki[en] 需要
+num2words
+spacy
+# misaki[zh] 需要
+pypinyin
+jieba
+
+# ── 音频处理 ──
 soundfile>=0.12
 numpy>=1.24
-kokoro>=0.7
