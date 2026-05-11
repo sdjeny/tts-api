@@ -156,7 +156,7 @@ class TtsClient:
             return resp.read(), resp.status
 
     # ── 提交任务 ──────────────────────────────────────
-    def submit(self, text: str, language: str = "Chinese",
+    def submit(self, text: str, language: str = None,
                speaker: str = "", instruct: str = "",
                temperature: float = None, do_sample: bool = None,
                top_k: int = None, top_p: float = None,
@@ -175,10 +175,11 @@ class TtsClient:
         """
         payload = {
             "text": text,
-            "language": language,
             "speaker": speaker,
             "instruct": instruct,
         }
+        if language is not None:
+            payload["language"] = language
         # 仅当客户端显式传入时才携带采样参数，避免旧调用意外覆盖服务端默认值
         if temperature is not None:
             payload["temperature"] = temperature
