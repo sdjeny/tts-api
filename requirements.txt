@@ -17,6 +17,7 @@ spacy
 # misaki[zh] 需要
 pypinyin
 jieba
+ordered-set
 
 # ── 音频处理 ──
 soundfile>=0.12
