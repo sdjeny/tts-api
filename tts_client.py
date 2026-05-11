@@ -156,7 +156,7 @@ class TtsClient:
             return resp.read(), resp.status
 
     # ── 提交任务 ──────────────────────────────────────
-    def submit(self, text: str, language: str = "Chinese",
+    def submit(self, text: str, language: str = "zh",
                speaker: str = "", instruct: str = "",
                temperature: float = None, do_sample: bool = None,
                top_k: int = None, top_p: float = None,
