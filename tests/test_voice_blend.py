@@ -62,12 +62,9 @@ def record(ok, label=""):
     return ok
 
 
-def submit_and_wait(text, speaker, language=None, speed=None, **kwargs):
+def submit_and_wait(text, speaker, language="Chinese", speed=None, **kwargs):
     """提交任务并等待完成，返回 (data_bytes, error_str)"""
-    kw = dict(text=text, speaker=speaker)
-    if language is not None:
-        kw["language"] = language
-    kw.update(**kwargs)
+    kw = dict(text=text, language=language, speaker=speaker, **kwargs)
     if speed is not None:
         kw["speed"] = speed
     r = client.submit(**kw)
