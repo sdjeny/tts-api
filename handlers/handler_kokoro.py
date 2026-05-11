@@ -281,8 +281,12 @@ def get_model(config=None):
 # ══════════════════════════════════════════════════════════
 def _worker_loop(config):
     """从 task_queue 取任务，调用 KPipeline 生成音频"""
-    import soundfile as sf
-    import numpy as np
+    try:
+        import soundfile as sf
+        import numpy as np
+    except ImportError as e:
+        log.error("Worker 启动失败，缺少依赖: %s", e, exc_info=True)
+        return
 
     log.info("Worker 线程启动（Kokoro-82M），等待任务...")
     while True:
