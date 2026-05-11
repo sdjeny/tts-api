@@ -12,6 +12,9 @@ Kokoro 特点：
 - 同步生成，但为了接口兼容仍走 task_queue 架构
 """
 import uuid
+import re
+import os
+import tempfile
 import threading
 import logging
 from datetime import datetime
@@ -126,22 +129,71 @@ _LANG_MAP = {
 # ── 固定采样率 ───────────────────────────────────────────
 _SAMPLE_RATE = 24000
 
+# ── 加权混合缓存 ─────────────────────────────────────────
+_blend_cache = {}       # voice_spec → temp_file_path
+_blend_cache_lock = threading.Lock()
+
+# ── speed 范围限制 ───────────────────────────────────────
+_SPEED_MIN = 0.25
+_SPEED_MAX = 4.0
+
 
 # ── 音色解析 ──────────────────────────────────────────────
+def _parse_voice_spec(voice_spec: str):
+    """
+    解析 \"af_heart(2)+am_adam(1)\" 格式，返回 [(name, weight), ...]。
+    """
+    parts = [p.strip() for p in voice_spec.split('+') if p.strip()]
+    if not parts:
+        raise ValueError(f"voice_spec 解析为空: '{voice_spec}'")
+
+    result = []
+    name_re = re.compile(r'^([a-zA-Z][a-zA-Z0-9_]*)\s*(?:\(\s*([0-9]*\.?[0-9]+)\s*\))?$')
+    for part in parts:
+        m = name_re.match(part.strip())
+        if not m:
+            raise ValueError(f"无法解析音色项: '{part}'，合法格式: name 或 name(weight)")
+        name = m.group(1)
+        weight = float(m.group(2)) if m.group(2) else 1.0
+        if weight <= 0:
+            raise ValueError(f"权重必须 > 0，got {weight} for voice '{name}'")
+        result.append((name, weight))
+    return result
+
+
 def _parse_speaker(speaker_raw: str, lang_code: str):
     """
     解析 speaker 字段，返回 (voice_str, blend_desc)。
 
-    支持两种格式：
-      单音色:    "af_heart"
-      等权混合:  "af_heart,am_adam"  → KPipeline.load_voice 原生 torch.mean
-
-    Kokoro 原生不支持加权比例（name:weight），如需自定义权重请在外部预处理。
+    支持三种格式：
+      单音色:      "af_heart"
+      等权混合:    "af_heart,am_adam"          → KPipeline 原生支持
+      加权混合:    "af_heart(2)+am_adam(1)"    → 自定义加权平均
+      等权(+号):   "af_heart+am_adam"          → 自定义，权重各 1
     """
     if not speaker_raw:
         return "af_heart", "af_heart"
 
-    # 去掉空格，规范化
+    speaker_raw = speaker_raw.strip()
+    if not speaker_raw:
+        return "af_heart", "af_heart"
+
+    # 判断是否走加权混合（包含 + 连接符）
+    if '+' in speaker_raw:
+        voices = _parse_voice_spec(speaker_raw)
+        if len(voices) == 1:
+            return voices[0][0], voices[0][0]
+        # 生成描述
+        parts_desc = []
+        for name, weight in voices:
+            if weight == 1.0:
+                parts_desc.append(name)
+            else:
+                parts_desc.append(f"{name}({weight})")
+        blend_desc = ' + '.join(parts_desc)
+        return speaker_raw, blend_desc
+
+    # 逗号分隔 → 等权混合（Kokoro 原生支持）
     parts = [p.strip() for p in speaker_raw.split(',') if p.strip()]
     if not parts:
         return "af_heart", "af_heart"
@@ -152,6 +204,45 @@ def _parse_speaker(speaker_raw: str, lang_code: str):
     else:
         blend_desc = ' + '.join(parts) + ' (等权)'
         return voice_str, blend_desc
+
+
+def _blend_and_save(voice_spec: str, pipeline):
+    """
+    加权混合音色 embeddings，保存为临时 .pt 文件。
+    有缓存：同一 voice_spec 不重复计算。
+    """
+    import torch
+
+    with _blend_cache_lock:
+        if voice_spec in _blend_cache:
+            return _blend_cache[voice_spec]
+
+    voices = _parse_voice_spec(voice_spec)
+
+    # 归一化权重
+    total_weight = sum(w for _, w in voices)
+    normalized = [(name, w / total_weight) for name, w in voices]
+
+    # 加权求和
+    combined = None
+    for name, weight in normalized:
+        tensor = pipeline.load_voice(name)
+        if combined is None:
+            combined = tensor.clone() * weight
+        else:
+            combined = combined + tensor * weight
+
+    # 保存临时文件
+    safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', voice_spec)
+    temp_path = os.path.join(tempfile.gettempdir(), f"blend_{safe_name}.pt")
+    torch.save(combined, temp_path)
+
+    # 写缓存
+    with _blend_cache_lock:
+        _blend_cache[voice_spec] = temp_path
+
+    log.info("音色混合完成: %s → %s", voice_spec, temp_path)
+    return temp_path
 
 
 # ══════════════════════════════════════════════════════════
@@ -208,6 +299,7 @@ def _worker_loop(config):
             text = task["text"]
             language = task.get("language", "English")
             speaker_raw = task.get("speaker", "af_heart") or "af_heart"
+            speed = task.get("speed", 1.0)          # ★ 新增：读取 speed
 
             # 语言 -> lang_code
             lang_code = _LANG_MAP.get(language, "a")
@@ -229,26 +321,29 @@ def _worker_loop(config):
                 log.info("[%s] Kokoro 不支持 repetition_penalty 参数，已忽略", task_id[:8])
 
             # ── 解析 speaker 字段 ─────────────────────────────
-            # 支持三种格式：
-            #   单音色:    "af_heart"
-            #   等权混合:  "af_heart,am_adam"          → Kokoro 原生支持
-            #   加权混合:  "af_heart:0.7,am_adam:0.3"  → 自定义加权平均 embedding
             voice, blend_desc = _parse_speaker(speaker_raw, lang_code)
 
+            # ── 加权混合处理 ─────────────────────────────────
+            if '+' in speaker_raw:
+                # 加权混合：计算混合 tensor，保存为临时 .pt 文件
+                pipeline = _get_pipeline(lang_code)
+                voice_path = _blend_and_save(speaker_raw, pipeline)
+                voice = voice_path  # 传给 KPipeline 的是文件路径
+            elif ',' in speaker_raw:
+                # 等权混合：Kokoro 原生支持，voice 已是逗号分隔字符串
+                pass
+            # 单音色：voice 已是音色名字符串
+
             log.info(
-                "[%s] 开始生成 | text=%.30s | voice=%s | lang=%s",
-                task_id[:8], text, blend_desc, lang_code,
+                "[%s] 开始生成 | text=%.30s | voice=%s | speed=%s | lang=%s",
+                task_id[:8], text, blend_desc, speed, lang_code,
             )
 
             # 获取对应语言的 pipeline
             pipeline = _get_pipeline(lang_code)
 
-            # ── 音色混合处理 ─────────────────────────────────
-            # Kokoro 原生支持等权混合（逗号分隔），如 "af_heart,am_adam"
-            # 单音色直接传字符串，如 "af_heart"
-            # 无需特殊处理，KPipeline.load_voice 内部自动做 torch.mean
             all_audio = []
-            generator = pipeline(text, voice=voice, speed=1.0)
+            generator = pipeline(text, voice=voice, speed=speed)  # ★ 改动：speed 从 task 读取
             for i, (gs, ps, audio) in enumerate(generator):
                 all_audio.append(audio)
 
@@ -310,6 +405,16 @@ def register_routes(app):
         if not text:
             return jsonify({"error": "text 不能为空"}), 400
 
+        # speed 参数校验
+        speed = data.get("speed", 1.0)
+        if speed is not None:
+            try:
+                speed = float(speed)
+            except (TypeError, ValueError):
+                return jsonify({"error": f"speed 必须是数字，got: {data.get('speed')}"}), 400
+            if speed < _SPEED_MIN or speed > _SPEED_MAX:
+                return jsonify({"error": f"speed 必须在 {_SPEED_MIN}~{_SPEED_MAX} 之间，got: {speed}"}), 400
+
         date_prefix = datetime.now().strftime("%Y%m%d")
         task_id = f"{date_prefix}_{uuid.uuid4().hex}"
         task = {
@@ -317,6 +422,7 @@ def register_routes(app):
             "text": text,
             "language": data.get("language", "English"),
             "speaker": data.get("speaker", "af_heart"),
+            "speed": speed,
             "instruct": data.get("instruct", ""),
             "temperature": data.get("temperature"),
             "do_sample": data.get("do_sample"),
