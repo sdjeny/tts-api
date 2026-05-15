@@ -1,5 +1,5 @@
 # ============================================================
-# TTS API 配置文件
+# TTS API 配置文件（测试容器）
 # ============================================================
 #
 # 切换模型：修改 model.active 即可，无需重启以外的任何操作
@@ -11,11 +11,7 @@
 
 model:
   # 当前激活模型：custom_voice | base | kokoro
-  active: custom_voice
-
-  # Qwen3-TTS 模型路径（custom_voice 和 base 共用或分别指定）
-  # 容器内路径，通过 docker-compose volumes 挂载到 /models
-  model_path: "/models/Qwen3-TTS-12Hz-1.7B-CustomVoice"
+  active: kokoro
 
   # 设备与精度
   device_map: "cpu"        # cpu / cuda:0 等
@@ -34,6 +30,10 @@ output:
 
 voice_clones:
   dir: "/clones"           # 容器内路径（挂载到 /clones）
+
+# 任务管理器配置
+task_manager:
+  db_path: "data/tasks.db"
 
 # tts_client.py 使用的默认地址
 api:
