@@ -28,23 +28,23 @@ os.makedirs(TEST_OUT, exist_ok=True)
 
 # ── 对白数据 ─────────────────────────────────────────────────
 DIALOGUE = [
-    ("A", "Dylan", "今天天气真不错，我们一起去公园散步吧。"),
-    ("B", "Vivian", "好啊，我正好也想出去走走。你想去哪里？"),
-    ("A", "Dylan", "就去湖边吧，听说那边新开了一家咖啡馆。"),
-    ("B", "Vivian", "太好了，我一直想去试试他们家的拿铁。"),
-    ("A", "Dylan", "那就这么说定了，下午两点在湖边见。"),
-    ("B", "Vivian", "好的，不见不散！记得带上你那本没看完的书。"),
+    ("A", "dylan", "今天天气真不错，我们一起去公园散步吧。"),
+    ("B", "vivian", "好啊，我正好也想出去走走。你想去哪里？"),
+    ("A", "dylan", "就去湖边吧，听说那边新开了一家咖啡馆。"),
+    ("B", "vivian", "太好了，我一直想去试试他们家的拿铁。"),
+    ("A", "dylan", "那就这么说定了，下午两点在湖边见。"),
+    ("B", "vivian", "好的，不见不散！记得带上你那本没看完的书。"),
 ]
 
 DIALOGUE_AAAA = [
-    ("A", "Dylan", "今天天气真不错，我们一起去公园散步吧。"),
-    ("A", "Dylan", "就去湖边吧，听说那边新开了一家咖啡馆。"),
-    ("A", "Dylan", "那就这么说定了，下午两点在湖边见。"),
-    ("A", "Dylan", "对了，你上次说的那本书我看完了，确实很精彩。"),
-    ("B", "Vivian", "好啊，我正好也想出去走走。你想去哪里？"),
-    ("B", "Vivian", "太好了，我一直想去试试他们家的拿铁。"),
-    ("B", "Vivian", "好的，不见不散！记得带上你那本没看完的书。"),
-    ("B", "Vivian", "我也刚看完，有些地方还想跟你讨论一下呢。"),
+    ("A", "dylan", "今天天气真不错，我们一起去公园散步吧。"),
+    ("A", "dylan", "就去湖边吧，听说那边新开了一家咖啡馆。"),
+    ("A", "dylan", "那就这么说定了，下午两点在湖边见。"),
+    ("A", "dylan", "对了，你上次说的那本书我看完了，确实很精彩。"),
+    ("B", "vivian", "好啊，我正好也想出去走走。你想去哪里？"),
+    ("B", "vivian", "太好了，我一直想去试试他们家的拿铁。"),
+    ("B", "vivian", "好的，不见不散！记得带上你那本没看完的书。"),
+    ("B", "vivian", "我也刚看完，有些地方还想跟你讨论一下呢。"),
 ]
 
 
@@ -307,11 +307,11 @@ for i, (role, speaker, text) in enumerate(DIALOGUE):
     else:
         print(f"❌ {feats['error']}")
 
-dylan_ab = [f for f in all_features if "Dylan" in f.get("label","") and "error" not in f]
-vivian_ab = [f for f in all_features if "Vivian" in f.get("label","") and "error" not in f]
+dylan_ab = [f for f in all_features if "dylan" in f.get("label","") and "error" not in f]
+vivian_ab = [f for f in all_features if "vivian" in f.get("label","") and "error" not in f]
 
-dylan_ab_ok = check_stability(dylan_ab, "Dylan(ababab)")
-vivian_ab_ok = check_stability(vivian_ab, "Vivian(ababab)")
+dylan_ab_ok = check_stability(dylan_ab, "dylan(ababab)")
+vivian_ab_ok = check_stability(vivian_ab, "vivian(ababab)")
 
 # ── 场景2: aaaabbbb ────────────────────────────────────────
 print("\n【场景2】连续对话 aaaabbbb")
@@ -338,8 +338,8 @@ for i, (role, speaker, text) in enumerate(DIALOGUE_AAAA):
     else:
         print(f"❌ {feats['error']}")
 
-dylan_aaaa_ok = check_stability(features_aaaa, "Dylan(aaaa)")
-vivian_bbbb_ok = check_stability(features_bbbb, "Vivian(bbbb)")
+dylan_aaaa_ok = check_stability(features_aaaa, "dylan(aaaa)")
+vivian_bbbb_ok = check_stability(features_bbbb, "vivian(bbbb)")
 
 # ════════════════════════════════════════════════════════════
 # 汇总
@@ -347,10 +347,10 @@ vivian_bbbb_ok = check_stability(features_bbbb, "Vivian(bbbb)")
 print("\n" + "=" * 60)
 print("📊 音色稳定性测试汇总")
 print("=" * 60)
-print(f"  Dylan  ababab:  {'✅ 稳定' if dylan_ab_ok else '❌ 波动'}")
-print(f"  Vivian ababab:  {'✅ 稳定' if vivian_ab_ok else '❌ 波动'}")
-print(f"  Dylan  aaaa:    {'✅ 稳定' if dylan_aaaa_ok else '❌ 波动'}")
-print(f"  Vivian bbbb:    {'✅ 稳定' if vivian_bbbb_ok else '❌ 波动'}")
+print(f"  dylan  ababab:  {'✅ 稳定' if dylan_ab_ok else '❌ 波动'}")
+print(f"  vivian ababab:  {'✅ 稳定' if vivian_ab_ok else '❌ 波动'}")
+print(f"  dylan  aaaa:    {'✅ 稳定' if dylan_aaaa_ok else '❌ 波动'}")
+print(f"  vivian bbbb:    {'✅ 稳定' if vivian_bbbb_ok else '❌ 波动'}")
 
 all_ok = dylan_ab_ok and vivian_ab_ok and dylan_aaaa_ok and vivian_bbbb_ok
 if all_ok:

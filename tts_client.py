@@ -6,7 +6,7 @@ Qwen3-TTS API 客户端
     from tts_client import TtsClient
 
     client = TtsClient("https://your-server.com")
-    task_id = client.submit(text="你好世界", speaker="Dylan", instruct="愉快")
+    task_id = client.submit(text="你好世界", speaker="dylan", instruct="愉快")
     result = client.wait(task_id)
     if result.ok:
         data = client.download(task_id)

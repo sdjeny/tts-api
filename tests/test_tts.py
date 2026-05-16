@@ -20,9 +20,9 @@ client = TtsClient.from_config(
 
 # ── 角色配置 ───────────────────────────────────────────────
 role_to_speaker = {
-    "旁白": "Uncle_Fu",
-    "主角_林轩": "Dylan",
-    "配角_苏婉": "Vivian",
+    "旁白": "uncle_fu",
+    "主角_林轩": "dylan",
+    "配角_苏婉": "vivian",
 }
 
 CHARACTER_VOICES = {

@@ -362,7 +362,7 @@ def register_routes(app):
         从参考音频创建 voice clone。
         支持两种输入方式：
         1. multipart/form-data: 上传音频文件 (field: audio) + name + instruct(即 ref_text)
-        2. JSON: { "name": "Aiden", "audio_base64": "...", "instruct": "参考文本" }
+        2. JSON: { "name": "aiden", "audio_base64": "...", "instruct": "参考文本" }
         """
         name = ""
         audio_data = None

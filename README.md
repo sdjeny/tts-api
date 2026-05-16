@@ -49,7 +49,7 @@ Content-Type: application/json
 {
   "text": "你好世界",
   "language": "Chinese",
-  "speaker": "Dylan",
+  "speaker": "dylan",
   "instruct": "愉快，轻松",
   "temperature": 0.3,
   "top_k": 20,
@@ -75,7 +75,7 @@ GET /tts/download/<task_id>
 ```
 GET /tts/speakers
 ```
-返回：`{"speakers": [{"name": "Dylan", "description": "..."}]}`
+返回：`{"speakers": [{"name": "dylan", "description": "..."}]}`
 
 ### 队列状态
 ```

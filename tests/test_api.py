@@ -39,7 +39,7 @@ class TestTTSAPILegacy(unittest.TestCase):
         result = client.submit(
             text="你好，欢迎使用语音合成服务。今天天气真不错，我们一起去公园散步吧。",
             language="Chinese",
-            speaker="Dylan",
+            speaker="dylan",
             instruct="愉快，轻松，语速中等",
         )
         self.assertFalse(result.error, f"提交失败: {result.error}")
@@ -100,11 +100,11 @@ class TestTTSAPILegacy(unittest.TestCase):
         """多角色情感测试：旁白 + 愤怒 + 温柔"""
         cases = [
             ("夜幕降临，城市的灯火渐渐亮起。林轩独自站在天台上，望着远处出神。",
-             "Uncle_Fu", "沉稳，客观，语速中等偏慢"),
+             "uncle_fu", "沉稳，客观，语速中等偏慢"),
             ("他们凭什么这样对我？我辛辛苦苦这么久，一句话就把我打发了？",
-             "Dylan", "愤怒，语气强烈，语速稍快"),
+             "dylan", "愤怒，语气强烈，语速稍快"),
             ("林轩，你先冷静下来。我知道你很难过，但生气解决不了问题。",
-             "Vivian", "温柔，关切，语速平缓"),
+             "vivian", "温柔，关切，语速平缓"),
         ]
         task_ids = []
         for text, speaker, instruct in cases:
@@ -162,14 +162,14 @@ class TestTTSAPISampling(unittest.TestCase):
 
     def test_01_default_params(self):
         """不传采样参数 → 服务端使用保守默认值"""
-        tid, data = self._submit_and_wait(speaker="Dylan", instruct="愉快，轻松")
+        tid, data = self._submit_and_wait(speaker="dylan", instruct="愉快，轻松")
         path = self._save_wav(data, "sampling_default.wav")
         print(f"[OK] 默认参数音频: {path} ({len(data)} 字节)")
 
     def test_02_conservative_params(self):
         """显式保守参数"""
         tid, data = self._submit_and_wait(
-            speaker="Dylan", instruct="愉快，轻松",
+            speaker="dylan", instruct="愉快，轻松",
             temperature=0.3, top_k=20, top_p=0.85, repetition_penalty=1.1,
         )
         path = self._save_wav(data, "sampling_conservative.wav")
@@ -178,7 +178,7 @@ class TestTTSAPISampling(unittest.TestCase):
     def test_03_official_defaults(self):
         """官方默认参数"""
         tid, data = self._submit_and_wait(
-            speaker="Dylan", instruct="愉快，轻松",
+            speaker="dylan", instruct="愉快，轻松",
             temperature=0.9, top_k=50, top_p=1.0, repetition_penalty=1.05,
         )
         path = self._save_wav(data, "sampling_official.wav")
@@ -187,7 +187,7 @@ class TestTTSAPISampling(unittest.TestCase):
     def test_04_ultra_stable(self):
         """极限稳定参数（贪心解码）"""
         tid, data = self._submit_and_wait(
-            speaker="Dylan", instruct="愉快，轻松",
+            speaker="dylan", instruct="愉快，轻松",
             temperature=0.1, do_sample=False, top_k=10, top_p=0.5, repetition_penalty=1.3,
         )
         path = self._save_wav(data, "sampling_ultra_stable.wav")
@@ -196,7 +196,7 @@ class TestTTSAPISampling(unittest.TestCase):
     def test_05_partial_params(self):
         """仅传部分参数，其余 None 降级"""
         tid, data = self._submit_and_wait(
-            speaker="Dylan", instruct="愉快，轻松",
+            speaker="dylan", instruct="愉快，轻松",
             temperature=0.5,
         )
         path = self._save_wav(data, "sampling_partial.wav")
@@ -207,7 +207,7 @@ class TestTTSAPISampling(unittest.TestCase):
         sizes = []
         for i in range(3):
             _, data = self._submit_and_wait(
-                speaker="Dylan", instruct="愉快，轻松",
+                speaker="dylan", instruct="愉快，轻松",
                 temperature=0.3, top_k=20, top_p=0.85, repetition_penalty=1.1,
             )
             self._save_wav(data, f"consistency_{i}.wav")
@@ -228,7 +228,7 @@ class TestTTSAPISampling(unittest.TestCase):
         sizes = []
         for i, text in enumerate(texts):
             r = client.submit(
-                text=text, speaker="Dylan", instruct="愉快，轻松",
+                text=text, speaker="dylan", instruct="愉快，轻松",
                 temperature=0.3, top_k=20, top_p=0.85, repetition_penalty=1.1,
             )
             self.assertFalse(r.error)
