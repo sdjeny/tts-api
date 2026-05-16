@@ -239,7 +239,7 @@ class TestTaskManager:
         """extra 字段 JSON 序列化/反序列化正确"""
         extra = {
             "language": "Chinese",
-            "speaker": "Dylan",
+            "speaker": "dylan",
             "instruct": "愉快",
             "temperature": 0.5,
             "do_sample": True,
