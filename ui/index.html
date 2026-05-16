@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TTS API 任务管理</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0f172a; color: #e2e8f0; }
+nav { background: #1e293b; padding: 12px 24px; display: flex; gap: 20px; align-items: center; border-bottom: 1px solid #334155; }
+nav a { color: #94a3b8; text-decoration: none; font-size: 14px; padding: 6px 12px; border-radius: 6px; }
+nav a:hover, nav a.active { color: #38bdf8; background: #0f172a; }
+nav h1 { font-size: 18px; color: #38bdf8; margin-right: auto; }
+.container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+.card { background: #1e293b; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #334155; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; padding: 10px 12px; font-size: 12px; color: #64748b; text-transform: uppercase; border-bottom: 1px solid #334155; }
+td { padding: 10px 12px; font-size: 14px; border-bottom: 1px solid #1e293b; }
+tr:hover td { background: #0f172a; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.badge-pending { background: #1e3a5f; color: #60a5fa; }
+.badge-processing { background: #1e3a5f; color: #fbbf24; }
+.badge-success { background: #14532d; color: #4ade80; }
+.badge-failed { background: #450a0a; color: #f87171; }
+.badge-cancelled { background: #292524; color: #a8a29e; }
+.btn { padding: 6px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all .2s; }
+.btn-primary { background: #2563eb; color: #fff; }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-danger { background: #dc2626; color: #fff; }
+.btn-danger:hover { background: #b91c1c; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+select, input[type=text] { padding: 8px 12px; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; font-size: 14px; }
+select:focus, input:focus { outline: none; border-color: #2563eb; }
+.pagination { display: flex; gap: 8px; justify-content: center; margin-top: 16px; align-items: center; }
+.pagination button { padding: 6px 12px; border: 1px solid #334155; border-radius: 6px; background: #1e293b; color: #e2e8f0; cursor: pointer; }
+.pagination button:disabled { opacity: .4; cursor: default; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.stat-card { background: #1e293b; border-radius: 12px; padding: 20px; text-align: center; border: 1px solid #334155; }
+.stat-card .num { font-size: 32px; font-weight: 700; color: #38bdf8; }
+.stat-card .label { font-size: 12px; color: #64748b; margin-top: 4px; }
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 4px; }
+.form-group textarea { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; font-size: 14px; font-family: monospace; min-height: 200px; resize: vertical; }
+.form-group textarea:focus { outline: none; border-color: #2563eb; }
+input[type=checkbox] { margin-right: 6px; }
+.modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.6); align-items: center; justify-content: center; z-index: 1000; }
+.modal.show { display: flex; }
+.modal-content { background: #1e293b; border-radius: 12px; padding: 24px; max-width: 500px; width: 90%; border: 1px solid #334155; }
+.modal-content h3 { margin-bottom: 16px; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+audio { width: 100%; margin-top: 8px; }
+pre { font-family: monospace; font-size: 13px; white-space: pre-wrap; word-break: break-all; }
+</style>
+</head>
+<body>
+<nav>
+  <h1>🎙 TTS API</h1>
+  <a href="#" class="active" data-page="tasks">任务列表</a>
+  <a href="#" data-page="dashboard">监控面板</a>
+  <a href="#" data-page="settings">系统设置</a>
+  <a href="#" data-page="cleanup">清理工具</a>
+</nav>
+
+<div class="container" id="app"></div>
+
+<script>
+const API = '';
+let state = { page: 'tasks', tasks: [], total: 0, offset: 0, limit: 20, status: '', search: '' };
+
+function $(s) { return document.querySelector(s); }
+function $$(s) { return document.querySelectorAll(s); }
+
+async function api(method, path, body) {
+  const opt = { method, headers: {'Accept': 'application/json'} };
+  if (body) { opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
+  const r = await fetch(API + path, opt);
+  return r.headers.get('content-type')?.includes('json') ? r.json() : r;
+}
+
+// ── 导航 ──
+$$('nav a').forEach(a => a.onclick = async e => {
+  e.preventDefault();
+  $$('nav a').forEach(x => x.classList.remove('active'));
+  a.classList.add('active');
+  state.page = a.dataset.page;
+  await render();
+});
+
+// ── 渲染 ──
+async function render() {
+  const pages = { tasks: renderTasks, dashboard: renderDashboard, settings: renderSettings, cleanup: renderCleanup };
+  $('#app').innerHTML = '<div style="text-align:center;padding:40px;color:#64748b">加载中...</div>';
+  await (pages[state.page] || renderTasks)();
+}
+
+// ── 任务列表 ──
+async function renderTasks() {
+  const params = new URLSearchParams({ offset: state.offset, limit: state.limit });
+  if (state.status) params.set('status', state.status);
+  if (state.search) params.set('search', state.search);
+  const data = await api('GET', `/tts/tasks?${params}`);
+  state.tasks = data.tasks || [];
+  state.total = data.total || 0;
+
+  let html = `<div class="toolbar">
+    <select id="filter-status" onchange="state.status=this.value;state.offset=0;render()">
+      <option value="">全部状态</option>
+      <option value="pending" ${state.status==='pending'?'selected':''}>等待中</option>
+      <option value="processing" ${state.status==='processing'?'selected':''}>处理中</option>
+      <option value="success" ${state.status==='success'?'selected':''}>已完成</option>
+      <option value="failed" ${state.status==='failed'?'selected':''}>失败</option>
+      <option value="cancelled" ${state.status==='cancelled'?'selected':''}>已取消</option>
+    </select>
+    <input type="text" id="search-input" placeholder="搜索文本..." value="${state.search}" onkeydown="if(event.key==='Enter'){state.search=this.value;state.offset=0;render()}">
+    <button class="btn btn-primary" onclick="state.search=$('#search-input').value;state.offset=0;render()">搜索</button>
+    <button class="btn btn-primary" onclick="showSubmitModal()">+ 提交任务</button>
+  </div>`;
+
+  if (state.tasks.length === 0) {
+    html += '<div class="card" style="text-align:center;padding:40px;color:#64748b">暂无任务</div>';
+  } else {
+    html += `<table>
+      <thead><tr>
+        <th>任务ID</th><th>内容</th><th>状态</th><th>优先级</th>
+        <th>提交时间</th><th>完成时间</th><th>操作</th>
+      </tr></thead><tbody>`;
+    for (const t of state.tasks) {
+      const statusClass = `badge badge-${t.status}`;
+      const statusText = {pending:'等待中',processing:'处理中',success:'已完成',failed:'失败',cancelled:'已取消'}[t.status]||t.status;
+      html += `<tr>
+        <td style="font-family:monospace;font-size:12px">${t.task_id.slice(0,12)}…</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.text)}</td>
+        <td><span class="${statusClass}">${statusText}</span></td>
+        <td>${t.priority||0}</td>
+        <td style="font-size:12px">${fmtTime(t.submitted_at)}</td>
+        <td style="font-size:12px">${fmtTime(t.finished_at)}</td>
+        <td>
+          ${t.status==='success'?`<button class="btn btn-sm btn-primary" onclick="playAudio('${t.task_id}')">播放</button>`:''}
+          ${t.status==='failed'?`<button class="btn btn-sm btn-primary" onclick="retryTask('${t.task_id}')">重试</button>`:''}
+          ${t.status==='pending'||t.status==='processing'?`<button class="btn btn-sm btn-danger" onclick="cancelTask('${t.task_id}')">取消</button>`:''}
+          <button class="btn btn-sm btn-danger" onclick="deleteTask('${t.task_id}')">删除</button>
+        </td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+
+    const pages = Math.ceil(state.total / state.limit);
+    html += `<div class="pagination">
+      <button ${state.offset===0?'disabled':''} onclick="state.offset=0;render()">首页</button>
+      <button ${state.offset===0?'disabled':''} onclick="state.offset=Math.max(0,state.offset-state.limit);render()">上一页</button>
+      <span style="color:#94a3b8;font-size:13px">${state.offset/state.limit+1} / ${pages}（共${state.total}条）</span>
+      <button ${state.offset+state.limit>=state.total?'disabled':''} onclick="state.offset+=state.limit;render()">下一页</button>
+    </div>`;
+  }
+  $('#app').innerHTML = html;
+}
+
+// ── 监控面板 ──
+async function renderDashboard() {
+  const stats = await api('GET', '/tts/stats');
+  const queue = await api('GET', '/tts/queue');
+  const total = stats.total || 0;
+  const byStatus = stats.by_status || {};
+  const avg = stats.avg_processing_seconds || 0;
+
+  let html = `<div class="stats-grid">
+    <div class="stat-card"><div class="num">${total}</div><div class="label">总任务数</div></div>
+    <div class="stat-card"><div class="num">${byStatus.pending||0}</div><div class="label">等待中</div></div>
+    <div class="stat-card"><div class="num">${byStatus.processing||0}</div><div class="label">处理中</div></div>
+    <div class="stat-card"><div class="num">${byStatus.success||0}</div><div class="label">已完成</div></div>
+    <div class="stat-card"><div class="num">${byStatus.failed||0}</div><div class="label">失败</div></div>
+    <div class="stat-card"><div class="num">${avg}s</div><div class="label">平均耗时</div></div>
+  </div>`;
+
+  // 最近10条任务
+  const recent = await api('GET', '/tts/tasks?limit=10');
+  html += `<div class="card"><h3 style="margin-bottom:12px">最近任务</h3><table>
+    <thead><tr><th>ID</th><th>状态</th><th>提交时间</th></tr></thead><tbody>`;
+  for (const t of (recent.tasks||[])) {
+    html += `<tr><td style="font-family:monospace;font-size:12px">${t.task_id.slice(0,12)}…</td>
+      <td><span class="badge badge-${t.status}">${t.status}</span></td>
+      <td style="font-size:12px">${fmtTime(t.submitted_at)}</td></tr>`;
+  }
+  html += '</tbody></table></div>';
+  $('#app').innerHTML = html;
+}
+
+// ── 系统设置 ──
+async function renderSettings() {
+  const r = await fetch('/tts/settings');
+  const text = await r.text();
+  $('#app').innerHTML = `<div class="card">
+    <h3 style="margin-bottom:16px">⚙️ 系统设置</h3>
+    <div class="form-group">
+      <label>config.yaml</label>
+      <textarea id="config-editor">${esc(text)}</textarea>
+    </div>
+    <button class="btn btn-primary" onclick="saveSettings()">保存并刷新</button>
+    <span id="save-msg" style="margin-left:12px;font-size:13px;color:#4ade80"></span>
+  </div>`;
+}
+
+async function saveSettings() {
+  const text = $('#config-editor').value;
+  const r = await fetch('/tts/settings', { method:'PUT', body: text });
+  $('#save-msg').textContent = '✅ 已保存';
+  setTimeout(() => $('#save-msg').textContent = '', 3000);
+}
+
+// ── 清理工具 ──
+async function renderCleanup() {
+  $('#app').innerHTML = `<div class="card">
+    <h3 style="margin-bottom:16px">🧹 任务清理</h3>
+    <div class="form-group">
+      <label>保留天数（超过此天数的任务将被清理）</label>
+      <input type="number" id="cleanup-days" value="30" style="padding:8px 12px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:14px;width:100px">
+    </div>
+    <div class="form-group">
+      <label>状态筛选（可选）</label>
+      <select id="cleanup-status" style="padding:8px 12px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:14px">
+        <option value="">全部状态</option>
+        <option value="success">已完成</option>
+        <option value="failed">失败</option>
+        <option value="cancelled">已取消</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label><input type="checkbox" id="cleanup-delete-file" checked> 同时删除音频文件</label>
+    </div>
+    <button class="btn btn-danger" onclick="doCleanup()">执行清理</button>
+    <span id="cleanup-msg" style="margin-left:12px;font-size:13px"></span>
+  </div>`;
+}
+
+async function doCleanup() {
+  const days = parseInt($('#cleanup-days').value) || 30;
+  const status = $('#cleanup-status').value || null;
+  const deleteFile = $('#cleanup-delete-file').checked;
+  const r = await api('POST', '/tts/cleanup', { days, status, delete_file: deleteFile });
+  $('#cleanup-msg').textContent = `✅ 已清理 ${r.deleted} 条任务`;
+  setTimeout(() => $('#cleanup-msg').textContent = '', 3000);
+}
+
+// ── 操作 ──
+async function retryTask(id) {
+  await api('POST', `/tts/tasks/${id}/retry`);
+  render();
+}
+
+async function cancelTask(id) {
+  await api('POST', `/tts/tasks/${id}/cancel`);
+  render();
+}
+
+async function deleteTask(id) {
+  if (!confirm('确定删除此任务？')) return;
+  await api('DELETE', `/tts/tasks/${id}`);
+  render();
+}
+
+function playAudio(id) {
+  const w = window.open('', '_blank', 'width=400,height=200');
+  w.document.write(`<audio controls autoplay style="width:100%"><source src="/tts/download/${id}"></audio>`);
+}
+
+function showSubmitModal() {
+  const div = document.createElement('div');
+  div.className = 'modal show';
+  div.id = 'submit-modal';
+  div.innerHTML = `<div class="modal-content">
+    <h3>提交 TTS 任务</h3>
+    <div class="form-group"><label>文本</label><textarea id="submit-text" style="min-height:80px" placeholder="输入要合成的文本..."></textarea></div>
+    <div class="form-group"><label>speaker</label><input type="text" id="submit-speaker" value="af_heart" style="padding:8px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:14px;width:100%"></div>
+    <div class="modal-actions">
+      <button class="btn" style="background:#334155;color:#e2e8f0" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="doSubmit()">提交</button>
+    </div>
+  </div>`;
+  document.body.appendChild(div);
+  div.onclick = e => { if (e.target === div) closeModal(); };
+}
+
+function closeModal() {
+  const m = document.getElementById('submit-modal');
+  if (m) { m.remove(); }
+}
+
+async function doSubmit() {
+  const text = $('#submit-text').value;
+  const speaker = $('#submit-speaker').value;
+  const r = await api('POST', '/tts/submit', { text, speaker });
+  closeModal();
+  if (r.task_id) {
+    render();
+    alert(`任务已提交: ${r.task_id.slice(0,12)}…`);
+  } else {
+    alert('提交失败: ' + (r.error || '未知错误'));
+  }
+}
+
+// ── 工具 ──
+function esc(s) { const d = document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
+function fmtTime(s) { return s ? s.replace('T',' ').slice(0,19) : '-'; }
+
+// ── 启动 ──
+render();
+</script>
+</body>
+</html>
